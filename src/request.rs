@@ -2,7 +2,7 @@ use chrono::NaiveDateTime;
 use reqwest::Client;
 use serde::{Deserialize, Deserializer};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum AurResponse {
     #[serde(rename = "error")]
@@ -14,7 +14,7 @@ pub enum AurResponse {
     },
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "PascalCase", default)]
 pub struct Packages {
     #[serde(rename = "ID")]
@@ -98,6 +98,5 @@ pub async fn search(client: &Client, package: &str) -> AurResponse {
         .send()
         .await
         .unwrap();
-    let text = res.text().await.unwrap();
-    serde_json::from_str(&text).unwrap()
+    res.json::<AurResponse>().await.unwrap()
 }

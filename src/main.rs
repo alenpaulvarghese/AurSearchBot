@@ -1,8 +1,11 @@
 mod request;
 
 use request::{search, AurResponse};
+use std::time::Duration;
+
 use reqwest::Client;
-use std::error::Error;
+use retainer::Cache;
+use std::{error::Error, sync::Arc};
 use teloxide::{
     payloads::AnswerInlineQuerySetters,
     prelude::*,
@@ -14,6 +17,11 @@ use teloxide::{
 };
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
+struct Utils {
+    cache: Arc<Cache<String, AurResponse>>,
+    client: Client,
+}
+
 #[derive(BotCommand)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
 enum Command {
@@ -23,14 +31,31 @@ enum Command {
     Search(String),
 }
 
+async fn cached_search(utils: &Utils, query: String) -> AurResponse {
+    if let Some(cache) = utils.cache.get(&query).await {
+        let s = &*cache;
+        println!("cache hit");
+        s.clone()
+    } else {
+        let response = search(&utils.client, &query).await;
+        utils
+            .cache
+            .insert(query, response.clone(), Duration::from_secs(30))
+            .await;
+        response
+    }
+}
+
 async fn inline_queries_handler(
     cx: UpdateWithCx<AutoSend<Bot>, InlineQuery>,
+    utils: Arc<Utils>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let client = Client::new();
     let mut inline_result: Vec<InlineQueryResult> = Vec::new();
     let mut offset = cx.update.offset.parse::<usize>().unwrap_or(0);
-
-    if let AurResponse::Result { results, .. } = search(&client, &cx.update.query).await {
+    // Checking for cached content
+    // let mut guard = utils.cache.lock().await;
+    let aur_response = cached_search(&utils, cx.update.query.clone()).await;
+    if let AurResponse::Result { results, .. } = &aur_response {
         let mut end = offset + 50;
         if end > results.len() {
             end = results.len()
@@ -69,7 +94,7 @@ async fn inline_queries_handler(
         req_builder = req_builder.next_offset(offset.to_string());
     }
     req_builder.await?;
-    dbg!(cx.update.query);
+
     Ok(())
 }
 
@@ -104,10 +129,16 @@ async fn message_handler(
 #[tokio::main]
 async fn main() {
     teloxide::enable_logging!();
-    log::info!("Starting aur-search bot...");
+    log::info!("Starting  bot...");
 
     let bot = Bot::from_env().auto_send();
-
+    let cache: Arc<Cache<String, AurResponse>> = Arc::new(Cache::new());
+    let utils = Utils {
+        cache: Arc::clone(&cache),
+        client: Client::new(),
+    };
+    let c = Arc::new(utils);
+    tokio::spawn(async move { cache.monitor(4, 0.25, Duration::from_secs(3)).await });
     Dispatcher::new(bot)
         .messages_handler(|rx: DispatcherHandlerRx<AutoSend<Bot>, Message>| {
             UnboundedReceiverStream::new(rx).for_each_concurrent(None, |cx| async move {
@@ -115,8 +146,11 @@ async fn main() {
             })
         })
         .inline_queries_handler(|rx: DispatcherHandlerRx<AutoSend<Bot>, InlineQuery>| {
-            UnboundedReceiverStream::new(rx).for_each_concurrent(None, |cx| async move {
-                inline_queries_handler(cx).await.log_on_error().await;
+            UnboundedReceiverStream::new(rx).for_each_concurrent(None, move |cx| {
+                let ref_c = Arc::clone(&c);
+                async move {
+                    inline_queries_handler(cx, ref_c).await.log_on_error().await;
+                }
             })
         })
         .dispatch()
