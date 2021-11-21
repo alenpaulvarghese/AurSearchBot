@@ -115,7 +115,7 @@ async fn message_handler(
     if let None = text {
         return Ok(());
     }
-    match Command::parse(text.unwrap(), "Click counter") {
+    match Command::parse(text.unwrap(), "AurSearchBot") {
         Ok(command) => {
             match command {
                 Command::Help => {
@@ -123,7 +123,7 @@ async fn message_handler(
                 }
                 Command::Search(string) => {
                     if string.is_empty() {
-                        cx.reply_to("Please provid a search phrase").await?;
+                        cx.reply_to("Please provide a search phrase").await?;
                     } else {
                         cx.reply_to("currently not implemented").await?;
                     }
