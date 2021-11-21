@@ -61,26 +61,27 @@ impl Packages {
 
     pub fn pretty(&self) -> String {
         format!(
-            "Package Details: <b>{} <i>{}</i></b>\n\n\
-            <b>Git Clone URL:</b> {}\n\n\
-            <b>Description</b>: <i>{}</i>\n\
-            <b>Upstream URL</b>: {}\n\
-            <b>Maintainer</b>: <i>{}</i>\n\
-            <b>Votes</b>: <i>{}</i>\n\
-            <b>Popularity</b>: <i>{}</i>\n\
-            <b>First Submitted</b>: <i>{}</i>\n\
-            <b>Last Updated</b>: <i>{}</i>
+            "📦 <b>{}</b>\n\n\
+            ℹ️{}\n\n\
+            🔗<a href='{}'>Git</a> | \
+            <a href='{}'>Source</a>\n\
+            - Maintainer: <code>{}</code>\n\
+            - Votes: <code>{}</code>\n\
+            - Version: <code>{}</code>\n\
+            - Popularity: <code>{}</code>\n\
+            - Last Updated: <code>{}</code>\n\
+            - First Submitted: <code>{}</code>
             ",
             self.name,
-            self.version,
-            self.git(),
             &self.description,
+            self.git(),
             &self.package_url,
             &self.maintainer,
             self.num_votes,
+            self.version,
             self.popularity,
-            &self.first_submitted,
             &self.last_modified,
+            &self.first_submitted,
         )
     }
 }

@@ -4,7 +4,7 @@ use request::{search, AurResponse};
 use std::time::Duration;
 
 use reqwest::Client;
-use retainer::Cache;
+use retainer::{entry::CacheEntryReadGuard, Cache};
 use std::{error::Error, sync::Arc};
 use teloxide::{
     payloads::AnswerInlineQuerySetters,
@@ -27,22 +27,23 @@ struct Utils {
 enum Command {
     #[command(description = "display this text.")]
     Help,
-    #[command(description = "initate a new count message.")]
+    #[command(description = "search a package.")]
     Search(String),
 }
 
-async fn cached_search(utils: &Utils, query: String) -> AurResponse {
-    if let Some(cache) = utils.cache.get(&query).await {
-        let s = &*cache;
-        println!("cache hit");
-        s.clone()
+async fn cached_search<'a>(
+    utils: &'a Utils,
+    query: &String,
+) -> CacheEntryReadGuard<'a, AurResponse> {
+    if let Some(cache) = utils.cache.get(query).await {
+        cache
     } else {
-        let response = search(&utils.client, &query).await;
+        let response = search(&utils.client, query).await;
         utils
             .cache
-            .insert(query, response.clone(), Duration::from_secs(30))
+            .insert(query.clone(), response.clone(), Duration::from_secs(30))
             .await;
-        response
+        utils.cache.get(query).await.unwrap()
     }
 }
 
@@ -50,29 +51,32 @@ async fn inline_queries_handler(
     cx: UpdateWithCx<AutoSend<Bot>, InlineQuery>,
     utils: Arc<Utils>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    // check if the query is empty
+    if cx.update.query.is_empty() {
+        cx.requester
+            .answer_inline_query(cx.update.id, [])
+            .switch_pm_text("Type to search packages on AUR")
+            .switch_pm_parameter("start")
+            .await?;
+        return Ok(());
+    }
     let mut inline_result: Vec<InlineQueryResult> = Vec::new();
     let mut offset = cx.update.offset.parse::<usize>().unwrap_or(0);
-    // Checking for cached content
-    // let mut guard = utils.cache.lock().await;
-    let aur_response = cached_search(&utils, cx.update.query.clone()).await;
-    if let AurResponse::Result { results, .. } = &aur_response {
+    let aur_response = cached_search(&utils, &cx.update.query).await;
+    if let AurResponse::Result { results, .. } = &*aur_response {
         let mut end = offset + 50;
         if end > results.len() {
             end = results.len()
         }
-        println!(
-            "current offset: {}\tcurrent end: {}\tvector length: {}",
-            offset,
-            end,
-            results.len()
-        );
         for items in &results[offset..end] {
             inline_result.push(InlineQueryResult::Article(
                 InlineQueryResultArticle::new(
                     items.id.clone().to_string(),
                     items.name.clone(),
                     InputMessageContent::Text(
-                        InputMessageContentText::new(&items.pretty()).parse_mode(ParseMode::Html),
+                        InputMessageContentText::new(&items.pretty())
+                            .parse_mode(ParseMode::Html)
+                            .disable_web_page_preview(true),
                     ),
                 )
                 .description(&items.description),
@@ -83,9 +87,15 @@ async fn inline_queries_handler(
         } else {
             0
         };
-        println!("offset changed: {}", offset);
+    } else if let AurResponse::Error { error } = &*aur_response {
+        inline_result.push(InlineQueryResult::Article(InlineQueryResultArticle::new(
+            "1",
+            error,
+            InputMessageContent::Text(InputMessageContentText::new(
+                "Error occured while searching AUR",
+            )),
+        )))
     }
-
     let mut req_builder = cx
         .requester
         .answer_inline_query(cx.update.id, inline_result)
@@ -137,7 +147,7 @@ async fn main() {
         cache: Arc::clone(&cache),
         client: Client::new(),
     };
-    let c = Arc::new(utils);
+    let utils_ref = Arc::new(utils);
     tokio::spawn(async move { cache.monitor(4, 0.25, Duration::from_secs(3)).await });
     Dispatcher::new(bot)
         .messages_handler(|rx: DispatcherHandlerRx<AutoSend<Bot>, Message>| {
@@ -147,7 +157,7 @@ async fn main() {
         })
         .inline_queries_handler(|rx: DispatcherHandlerRx<AutoSend<Bot>, InlineQuery>| {
             UnboundedReceiverStream::new(rx).for_each_concurrent(None, move |cx| {
-                let ref_c = Arc::clone(&c);
+                let ref_c = Arc::clone(&utils_ref);
                 async move {
                     inline_queries_handler(cx, ref_c).await.log_on_error().await;
                 }
