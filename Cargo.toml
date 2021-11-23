@@ -7,13 +7,13 @@ license = "BSD-3-Clause"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version =  "1.8", features = ["rt-multi-thread", "macros"] }
 teloxide = { version = "0.5", features = ["macros", "ctrlc_handler", "auto-send"] }
+tokio = { version =  "1.8", features = ["rt-multi-thread", "macros"] }
+log4rs = { version = "1.0", features = ["file_appender", "pattern_encoder"]}
 reqwest = { version = "0.11.6", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
-pretty_env_logger = "0.4.0"
 tokio-stream = "0.1.8"
-retainer = "0.2"
 serde_json = "1.0"
+retainer = "0.2"
 chrono = "0.4"
 log = "0.4"

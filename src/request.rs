@@ -1,6 +1,15 @@
+use std::sync::Arc;
+use std::time::Duration;
+
 use chrono::NaiveDateTime;
 use reqwest::Client;
+use retainer::{entry::CacheEntryReadGuard, Cache};
 use serde::{Deserialize, Deserializer};
+
+pub struct Utils {
+    pub cache: Arc<Cache<String, AurResponse>>,
+    pub client: Client,
+}
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
@@ -41,6 +50,10 @@ where
     D: Deserializer<'de>,
 {
     let s: String = Deserialize::deserialize(de).unwrap_or(String::from("None"));
+    // temporary fix for parsing error
+    if s.contains("<=>") {
+        return Ok(s.replace("<=>", ""));
+    }
     Ok(s)
 }
 
@@ -49,7 +62,6 @@ where
     D: Deserializer<'de>,
 {
     let timestamp: i64 = Deserialize::deserialize(de)?;
-    // let timestamp = s.parse::<i64>().unwrap();
     let naive = NaiveDateTime::from_timestamp(timestamp, 0);
     Ok(naive.format("%Y-%m-%d %H:%M").to_string())
 }
@@ -100,4 +112,20 @@ pub async fn search(client: &Client, package: &str) -> AurResponse {
         .await
         .unwrap();
     res.json::<AurResponse>().await.unwrap()
+}
+
+pub async fn cached_search<'a>(
+    utils: &'a Utils,
+    query: &String,
+) -> CacheEntryReadGuard<'a, AurResponse> {
+    if let Some(cache) = utils.cache.get(query).await {
+        cache
+    } else {
+        let response = search(&utils.client, query).await;
+        utils
+            .cache
+            .insert(query.clone(), response.clone(), Duration::from_secs(30))
+            .await;
+        utils.cache.get(query).await.unwrap()
+    }
 }
