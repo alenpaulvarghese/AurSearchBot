@@ -8,7 +8,7 @@ A Telegram Inline Search Bot Written in Rust
 
 # Introduction
 
-Telegram Bot that can search [AUR ( Arch User Repository )](https://aur.archlinux.org/) in inline mode. This bot make uses of AUR's [RPC interface](https://aur.archlinux.org/rpc.php) to find packages.
+Telegram Bot that can search [AUR](https://aur.archlinux.org/) ( Arch User Repository ) in inline mode. This bot make use of AUR's [RPC interface](https://aur.archlinux.org/rpc.php) to find packages.
 
 
 ### Building & Running
@@ -22,8 +22,7 @@ cargo build
 
 set environment variable `TELOXIDE_TOKEN` to BOT_TOKEN 
 which you can get from @Botfather then run the target binary.
-
-alternatively you can use cargo run
+alternatively you can use cargo run<br>
 `TELOXIDE_TOKEN="12345:49dc3eeb1aehda3cI2TesHNHc" cargo run`
 
 ### Copyright & License 
