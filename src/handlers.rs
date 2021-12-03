@@ -141,11 +141,13 @@ pub async fn message_handler(
             match command {
                 Command::Start => {
                     cx.answer("Hi 👋, I can search packages on Arch User Repository, Inspired from @FDroidSearchBot").reply_markup(
-                        InlineKeyboardMarkup::new(
-                            [[
-                                InlineKeyboardButton::switch_inline_query_current_chat("Search in inline mode".to_string(),"".to_string()),
-                            InlineKeyboardButton::callback("❓ About".to_string(), "about".to_string())]]
-                        )
+                        InlineKeyboardMarkup::new([[
+                            InlineKeyboardButton::switch_inline_query_current_chat(
+                                "Search in inline mode".to_string(),
+                                "".to_string(),
+                            ),
+                            InlineKeyboardButton::callback("❓ About".to_string(), "about".to_string()),
+                        ]])
                     ).await?;
                 }
                 Command::Help => {

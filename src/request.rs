@@ -121,10 +121,14 @@ pub async fn cached_search<'a>(
     if let Some(cache) = utils.cache.get(query).await {
         cache
     } else {
-        let response = search(&utils.client, query).await;
+        let mut response = search(&utils.client, query).await;
+        if let AurResponse::Result { results, .. } = &mut response {
+            // sort result based on popularity
+            results.sort_by(|a, b| b.popularity.partial_cmp(&a.popularity).unwrap());
+        }
         utils
             .cache
-            .insert(query.clone(), response.clone(), Duration::from_secs(30))
+            .insert(query.clone(), response, Duration::from_secs(60))
             .await;
         utils.cache.get(query).await.unwrap()
     }
