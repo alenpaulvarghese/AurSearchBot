@@ -2,6 +2,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::NaiveDateTime;
+use regex::{Captures, Regex};
+
 use reqwest::Client;
 use retainer::{entry::CacheEntryReadGuard, Cache};
 use serde::{Deserialize, Deserializer};
@@ -18,7 +20,7 @@ pub enum AurResponse {
     Error { error: String },
     #[serde(rename = "search")]
     Result {
-        resultcount: u32,
+        resultcount: usize,
         results: Vec<Packages>,
     },
 }
@@ -45,18 +47,25 @@ pub struct Packages {
     pub last_modified: String,
 }
 
+// convert null type json objects to literal None
 fn null_to_none<'de, D>(de: D) -> Result<String, D::Error>
 where
     D: Deserializer<'de>,
 {
     let s: String = Deserialize::deserialize(de).unwrap_or(String::from("None"));
-    // temporary fix for parsing error
-    if s.contains("<=>") {
-        return Ok(s.replace("<=>", ""));
-    }
-    Ok(s)
+    let regex = Regex::new(r"(<|>|&)").unwrap();
+    // properly escape special characters.
+    // https://docs.rs/teloxide/0.5.3/teloxide/types/enum.ParseMode.html#html-style
+    let result = regex.replace_all(&s, |cap: &Captures| match &cap[0] {
+        ">" => "&gt;",
+        "<" => "&lt;",
+        "&" => "&amp;",
+        _ => panic!("We should never get here"),
+    });
+    Ok(result.to_string())
 }
 
+// convert posix string to date format
 fn posix_to_datefrmt<'de, D>(de: D) -> Result<String, D::Error>
 where
     D: Deserializer<'de>,
@@ -118,14 +127,17 @@ pub async fn cached_search<'a>(
     utils: &'a Utils,
     query: &String,
 ) -> CacheEntryReadGuard<'a, AurResponse> {
+    // check for cached entry
     if let Some(cache) = utils.cache.get(query).await {
         cache
     } else {
+        // if entry not found search the package in AUR
         let mut response = search(&utils.client, query).await;
         if let AurResponse::Result { results, .. } = &mut response {
             // sort result based on popularity
             results.sort_by(|a, b| b.popularity.partial_cmp(&a.popularity).unwrap());
         }
+        // add the result to cache
         utils
             .cache
             .insert(query.clone(), response, Duration::from_secs(60))

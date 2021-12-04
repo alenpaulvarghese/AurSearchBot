@@ -36,15 +36,19 @@ pub async fn inline_queries_handler(
     }
     let mut inline_result: Vec<InlineQueryResult> = Vec::new();
     let mut offset = cx.update.offset.parse::<usize>().unwrap_or(0);
-    info!(
-        "Someone queried about \"{}\", current offset: {}",
-        &cx.update.query, &offset
-    );
     let aur_response = cached_search(&utils, &cx.update.query).await;
-    if let AurResponse::Result { results, .. } = &*aur_response {
+    if let AurResponse::Result {
+        results,
+        resultcount,
+    } = &*aur_response
+    {
+        info!(
+            "Query: \"{}\", total result: {}, current offset: {}",
+            &cx.update.query, *resultcount, &offset
+        );
         let mut end = offset + 50;
-        if end > results.len() {
-            end = results.len()
+        if end > *resultcount {
+            end = *resultcount
         }
         for items in &results[offset..end] {
             inline_result.push(InlineQueryResult::Article(
@@ -66,6 +70,7 @@ pub async fn inline_queries_handler(
             0
         };
     } else if let AurResponse::Error { error } = &*aur_response {
+        info!("Query: \"{}\", error: {}", &cx.update.query, error);
         inline_result.push(InlineQueryResult::Article(InlineQueryResultArticle::new(
             "1",
             error,
