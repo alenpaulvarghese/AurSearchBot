@@ -1,14 +1,15 @@
-use super::request::{cached_search, AurResponse, Utils};
+use super::request::{cached_search, AurResponse, Search, Utils};
 
+use std::path::PathBuf;
 use std::{error::Error, sync::Arc};
 
 use log::info;
 use teloxide::types::{
     InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery, InlineQueryResult,
-    InlineQueryResultArticle, InputMessageContent, InputMessageContentText, Message, ParseMode,
+    InlineQueryResultArticle, InputFile, InputMessageContent, InputMessageContentText, Message,
+    ParseMode,
 };
 use teloxide::{prelude::*, utils::command::BotCommand};
-use tokio::join;
 
 #[derive(BotCommand)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
@@ -17,8 +18,8 @@ enum Command {
     Start,
     #[command(description = "display this text.")]
     Help,
-    #[command(description = "search a package.")]
-    Search(String),
+    #[command(description = "off")]
+    Debug,
 }
 
 pub async fn inline_queries_handler(
@@ -26,17 +27,21 @@ pub async fn inline_queries_handler(
     utils: Arc<Utils>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     // check if the query is empty
-    if cx.update.query.is_empty() {
-        cx.requester
-            .answer_inline_query(cx.update.id, [])
-            .switch_pm_text("Type to search packages on AUR")
-            .switch_pm_parameter("start")
-            .await?;
-        return Ok(());
+    match cx.update.query.as_str() {
+        "" | "!" | "!m" | "!m " => {
+            cx.requester
+                .answer_inline_query(cx.update.id, [])
+                .switch_pm_text("Type to search packages on AUR")
+                .switch_pm_parameter("start")
+                .await?;
+            return Ok(());
+        }
+        _ => {}
     }
+
     let mut inline_result: Vec<InlineQueryResult> = Vec::new();
     let mut offset = cx.update.offset.parse::<usize>().unwrap_or_default();
-    let aur_response = cached_search(&utils, &cx.update.query).await;
+    let aur_response = cached_search(&utils, Search::from(&cx.update.query)).await;
     if let AurResponse::Result {
         results,
         resultcount,
@@ -97,43 +102,6 @@ pub async fn inline_queries_handler(
     Ok(())
 }
 
-pub async fn callback_handler(
-    cx: UpdateWithCx<AutoSend<Bot>, CallbackQuery>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let query = cx.update.data;
-    match query {
-        Some(data) if data == "about" => {
-            let message = cx.update.message.unwrap();
-            let _d = join!(
-                cx.requester.answer_callback_query(cx.update.id).text(""),
-                cx.requester.delete_message(message.chat_id(), message.id)
-            );
-
-            cx.requester
-                .send_message(message.chat_id(), "This project is open ❤️ source")
-                .reply_markup(
-                    InlineKeyboardMarkup::new([[
-                        InlineKeyboardButton::url(
-                            "👨🏻‍🦯 Source".to_string(),
-                            "https://gitlab.com/alenpaul2001/aursearchbot".to_string(),
-                        ),
-                        InlineKeyboardButton::url(
-                            "❓ Bug Report".to_string(),
-                            "https://gitlab.com/alenpaul2001/aursearchbot/-/issues".to_string(),
-                        ),
-                    ]])
-                    .append_row([InlineKeyboardButton::url(
-                        "📕 Support".to_string(),
-                        "https://t.me/bytessupport".to_string(),
-                    )]),
-                )
-                .await?;
-        }
-        Some(_) | None => {}
-    }
-    Ok(())
-}
-
 pub async fn message_handler(
     cx: UpdateWithCx<AutoSend<Bot>, Message>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -145,24 +113,38 @@ pub async fn message_handler(
         Ok(command) => {
             match command {
                 Command::Start => {
-                    cx.answer("Hi 👋, I can search packages on Arch User Repository, Inspired from @FDroidSearchBot").reply_markup(
-                        InlineKeyboardMarkup::new([[
-                            InlineKeyboardButton::switch_inline_query_current_chat(
-                                "Search in inline mode".to_string(),
-                                "".to_string(),
-                            ),
-                            InlineKeyboardButton::callback("❓ About".to_string(), "about".to_string()),
-                        ]])
-                    ).await?;
+                    cx.answer(
+                        "This bot searches Packages in <a href='https://aur.archlinux.org/'>\
+                    AUR repository</a>, works only in inline mode \
+                    Inspired from @FDroidSearchBot\n\nCurrently supported search patterns:\n\
+                    - <code>Packages</code>, search directly\n- <code>Maintainer</code>, search with <code>!m</code>\n\n\
+                    <a href='https://gitlab.com/alenpaul2001/aursearchbot'>Source Code</a> | \
+                    <a href='https://t.me/bytesio'>Developer</a> | <a href='https://t.me/bytessupport'>Support Chat</a>",
+                    )
+                    .reply_markup(InlineKeyboardMarkup::new([
+                        [
+                        InlineKeyboardButton::switch_inline_query_current_chat(
+                            "Search Packages".to_string(),
+                            String::new(),
+                        ),
+                        InlineKeyboardButton::switch_inline_query_current_chat(
+                            "Search Maintainers".to_string(),
+                            "!m ".to_string(),
+                        )
+                    ]]))
+                    .parse_mode(ParseMode::Html)
+                    .disable_web_page_preview(true)
+                    .await?;
                 }
                 Command::Help => {
                     cx.answer(Command::descriptions()).await?;
                 }
-                Command::Search(string) => {
-                    if string.is_empty() {
-                        cx.reply_to("Please provide a search phrase").await?;
+                Command::Debug => {
+                    let file_name = PathBuf::from("debug.log");
+                    if file_name.exists() {
+                        cx.answer_document(InputFile::File(file_name)).await?;
                     } else {
-                        cx.reply_to("currently not implemented").await?;
+                        cx.reply_to("No log files found").await?;
                     }
                 }
             };

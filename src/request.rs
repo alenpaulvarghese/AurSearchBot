@@ -25,6 +25,31 @@ pub enum AurResponse {
     },
 }
 
+pub enum Search {
+    Package(String),
+    Maintainer(String),
+}
+
+impl Search {
+    pub fn from(query: &str) -> Self {
+        if query.starts_with("!m ") {
+            Search::Maintainer(query.replace("!m ", ""))
+        } else {
+            Search::Package(query.to_string())
+        }
+    }
+}
+
+impl std::ops::Deref for Search {
+    type Target = String;
+    fn deref(&self) -> &Self::Target {
+        match &*self {
+            Search::Package(x) => &x,
+            Search::Maintainer(x) => &x,
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "PascalCase", default)]
 pub struct Packages {
@@ -107,13 +132,12 @@ impl Packages {
     }
 }
 
-pub async fn search(client: &Client, package: &str) -> AurResponse {
-    let params = [
-        ("v", "5"),
-        ("type", "search"),
-        ("by", "name"),
-        ("arg", package),
-    ];
+pub async fn search(client: &Client, query: &Search) -> AurResponse {
+    let get_by = || match query {
+        &Search::Maintainer(_) => ("by", "maintainer"),
+        &Search::Package(_) => ("by", "name"),
+    };
+    let params = [("v", "5"), ("type", "search"), get_by(), ("arg", query)];
     let res = client
         .get("https://aur.archlinux.org/rpc.php/rpc/")
         .query(&params)
@@ -125,14 +149,14 @@ pub async fn search(client: &Client, package: &str) -> AurResponse {
 
 pub async fn cached_search<'a>(
     utils: &'a Utils,
-    query: &String,
+    query: Search,
 ) -> CacheEntryReadGuard<'a, AurResponse> {
     // check for cached entry
-    if let Some(cache) = utils.cache.get(query).await {
+    if let Some(cache) = utils.cache.get(&query).await {
         cache
     } else {
         // if entry not found search the package in AUR
-        let mut response = search(&utils.client, query).await;
+        let mut response = search(&utils.client, &query).await;
         if let AurResponse::Result { results, .. } = &mut response {
             // sort result based on popularity
             results.sort_by(|a, b| b.popularity.partial_cmp(&a.popularity).unwrap());
@@ -142,6 +166,53 @@ pub async fn cached_search<'a>(
             .cache
             .insert(query.clone(), response, Duration::from_secs(60))
             .await;
-        utils.cache.get(query).await.unwrap()
+        utils.cache.get(&query).await.unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_request_functions() {
+        use crate::request::cached_search;
+        use crate::request::{AurResponse, Search};
+        use crate::{Cache, Client, Utils};
+        use std::sync::Arc;
+
+        let cache = Arc::new(Cache::new());
+        let utils = Utils {
+            cache: Arc::clone(&cache),
+            client: Client::new(),
+        };
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let result = runtime.block_on(cached_search(&utils, Search::from("paru")));
+        assert!(
+            matches!(*result, AurResponse::Result { .. },),
+            "Search failed with a reponse of error variant"
+        );
+        if let AurResponse::Result {
+            results,
+            resultcount,
+        } = &*result
+        {
+            assert_ne!(
+                *resultcount, 0,
+                "Number of packages returned from search is zero",
+            );
+
+            assert_eq!(results[0].name, "paru", "The packages sorting failed");
+            assert_eq!(
+                results[0].git(),
+                "https://aur.archlinux.org/paru.git",
+                "Invalid git url found for package"
+            );
+        }
+        let result = runtime.block_on(utils.cache.get(&String::from("paru")));
+        assert_ne!(matches!(result, None), true, "Couldn't find cache hit");
+        runtime.shutdown_background();
     }
 }

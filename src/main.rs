@@ -1,7 +1,7 @@
 mod handlers;
 mod request;
 
-use handlers::{callback_handler, inline_queries_handler, message_handler};
+use handlers::{inline_queries_handler, message_handler};
 use request::{AurResponse, Utils};
 
 use std::sync::Arc;
@@ -40,11 +40,6 @@ async fn run() {
                 async move {
                     inline_queries_handler(cx, ref_c).await.log_on_error().await;
                 }
-            })
-        })
-        .callback_queries_handler(|rx: DispatcherHandlerRx<AutoSend<Bot>, CallbackQuery>| {
-            UnboundedReceiverStream::new(rx).for_each_concurrent(None, |cx| async move {
-                callback_handler(cx).await.log_on_error().await;
             })
         })
         .dispatch()
