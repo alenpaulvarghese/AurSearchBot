@@ -27,5 +27,5 @@ alternatively you can use cargo run<br>
 
 ### Copyright & License 
 
-* Copyright (C) 2021 by [AlenPaulVarghese](https://github.com/alenpaul2001)
+* Copyright (C) 2022 by [AlenPaulVarghese](https://github.com/alenpaul2001)
 * Licensed under the terms of the [BSD 3-Clause License](./LICENSE.md)
