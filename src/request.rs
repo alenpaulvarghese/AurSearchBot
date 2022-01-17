@@ -43,9 +43,9 @@ impl Search {
 impl std::ops::Deref for Search {
     type Target = String;
     fn deref(&self) -> &Self::Target {
-        match &*self {
-            Search::Package(x) => &x,
-            Search::Maintainer(x) => &x,
+        match &self {
+            Search::Package(x) => x,
+            Search::Maintainer(x) => x,
         }
     }
 }

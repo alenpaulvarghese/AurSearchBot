@@ -26,7 +26,7 @@ pub async fn inline_queries_handler(
     cx: UpdateWithCx<AutoSend<Bot>, InlineQuery>,
     utils: Arc<Utils>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // check if the query is empty
+    // check if the query is empty or contain certain characters
     match cx.update.query.as_str() {
         "" | "!" | "!m" | "!m " => {
             cx.requester
@@ -69,6 +69,9 @@ pub async fn inline_queries_handler(
                 .description(&items.description),
             ));
         }
+        // increase the offset by 50 after every scroll down
+        // if the current offset + 50 is lesser than the total
+        // length of the result the offset should be set to 0
         offset = if offset + 50 < results.len() {
             offset + 50
         } else {
@@ -128,7 +131,7 @@ pub async fn message_handler(
                             String::new(),
                         ),
                         InlineKeyboardButton::switch_inline_query_current_chat(
-                            "Search Maintainers".to_string(),
+                            "Search Package by Maintainers".to_string(),
                             "!m ".to_string(),
                         )
                     ]]))
