@@ -5,7 +5,7 @@ use chrono::NaiveDateTime;
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Client;
-use retainer::{Cache, entry::CacheEntryReadGuard};
+use retainer::{entry::CacheEntryReadGuard, Cache};
 use serde::{Deserialize, Deserializer};
 
 pub struct Utils {
@@ -182,8 +182,8 @@ pub async fn cached_search(utils: &Utils, query: Search) -> CacheEntryReadGuard<
 #[cfg(test)]
 mod tests {
 
-    #[test]
-    fn test_request_functions() {
+    #[tokio::test]
+    async fn test_request_functions() {
         use crate::request::cached_search;
         use crate::request::{AurResponse, Search};
         use crate::{Cache, Client, Utils};
@@ -194,17 +194,13 @@ mod tests {
             cache: Arc::clone(&cache),
             client: Client::new(),
         };
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let result = runtime.block_on(cached_search(&utils, Search::from("paru")));
+        let result = cached_search(&utils, Search::from("paru")).await;
         assert!(
             matches!(*result, AurResponse::Result { .. },),
             "Search failed with a response of error variant"
         );
         if let AurResponse::Result { results, total } = &*result {
-            assert_ne!(*total, 0, "Number of packages returned from search is zero", );
+            assert_ne!(*total, 0, "Number of packages returned from search is zero",);
 
             assert_eq!(results[0].name, "paru", "The packages sorting failed");
             assert_eq!(
@@ -213,8 +209,7 @@ mod tests {
                 "Invalid git url found for package"
             );
         }
-        let result = runtime.block_on(utils.cache.get(&String::from("paru")));
-        assert!(!result.is_none(), "Couldn't find cache hit");
-        runtime.shutdown_background();
+        let result = utils.cache.get(&String::from("paru")).await;
+        assert_ne!(matches!(result, None), true, "Couldn't find cache hit");
     }
 }
