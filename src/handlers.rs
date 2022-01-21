@@ -1,6 +1,7 @@
-use super::request::{cached_search, AurResponse, Search, Utils};
+use crate::request::{cached_search, AurResponse, Search, Utils};
 
 use std::path::PathBuf;
+use std::time::Instant;
 use std::{error::Error, sync::Arc};
 
 use log::info;
@@ -38,9 +39,9 @@ pub async fn inline_queries_handler(
         }
         _ => {}
     }
-
     let mut inline_result: Vec<InlineQueryResult> = Vec::new();
     let mut offset = cx.update.offset.parse::<usize>().unwrap_or_default();
+    let instant = Instant::now();
     let aur_response = cached_search(&utils, Search::from(&cx.update.query)).await;
     if let AurResponse::Result {
         results,
@@ -48,8 +49,11 @@ pub async fn inline_queries_handler(
     } = &*aur_response
     {
         info!(
-            "Query: \"{}\", total result: {}, current offset: {}",
-            cx.update.query, resultcount, offset
+            "Query: \"{}\", total result: {}, current offset: {}, took: {}ms",
+            cx.update.query,
+            resultcount,
+            offset,
+            instant.elapsed().as_millis()
         );
         let mut end = offset + 50;
         if end > *resultcount {

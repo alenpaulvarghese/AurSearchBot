@@ -2,11 +2,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::NaiveDateTime;
-use regex::{Captures, Regex};
+use regex::Regex;
 
 use reqwest::Client;
 use retainer::{entry::CacheEntryReadGuard, Cache};
 use serde::{Deserialize, Deserializer};
+
+use lazy_static::lazy_static;
 
 pub struct Utils {
     pub cache: Arc<Cache<String, AurResponse>>,
@@ -72,22 +74,34 @@ pub struct Packages {
     pub last_modified: String,
 }
 
-// convert null type json objects to literal None
+// convert null type json objects to literal None and properly escape special characters.
+// https://docs.rs/teloxide/0.5.3/teloxide/types/enum.ParseMode.html#html-style
 fn null_to_none<'de, D>(de: D) -> Result<String, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let s: String = Deserialize::deserialize(de).unwrap_or(String::from("None"));
-    let regex = Regex::new(r"(<|>|&)").unwrap();
-    // properly escape special characters.
-    // https://docs.rs/teloxide/0.5.3/teloxide/types/enum.ParseMode.html#html-style
-    let result = regex.replace_all(&s, |cap: &Captures| match &cap[0] {
-        ">" => "&gt;",
-        "<" => "&lt;",
-        "&" => "&amp;",
-        _ => panic!("We should never get here"),
-    });
-    Ok(result.to_string())
+    lazy_static! {
+        static ref REGEX: Regex = Regex::new(r"[<>&]").unwrap();
+    }
+    let string: String = Deserialize::deserialize(de).unwrap_or(String::from("None"));
+    // https://lise-henry.github.io/articles/optimising_strings.html
+    let first = REGEX.find(&string);
+    if let Some(first) = first {
+        let first = first.start();
+        let mut output = String::from(&string[0..first]);
+        output.reserve(string.len() - first);
+        let rest = string[first..].chars();
+        for c in rest {
+            match c {
+                '<' => output.push_str("&lt;"),
+                '>' => output.push_str("&gt;"),
+                '&' => output.push_str("&amp;"),
+                _ => output.push(c),
+            }
+        }
+        return Ok(output);
+    }
+    Ok(string)
 }
 
 // convert posix string to date format

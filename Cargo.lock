@@ -65,6 +65,7 @@ name = "aur-search-bot"
 version = "0.1.4"
 dependencies = [
  "chrono",
+ "lazy_static",
  "log",
  "log4rs",
  "regex",

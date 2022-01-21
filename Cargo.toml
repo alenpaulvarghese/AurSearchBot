@@ -4,8 +4,6 @@ version = "0.1.4"
 edition = "2018"
 license = "BSD-3-Clause"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 teloxide = { version = "0.5", features = ["macros", "ctrlc_handler", "auto-send"] }
 log4rs = { version = "1.0", features = ["file_appender", "pattern_encoder"]}
@@ -14,6 +12,7 @@ reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 regex = { version = "1.5", features = ["std"] }
 tokio-stream = "0.1.8"
+lazy_static = "1.4"
 retainer = "0.2"
 chrono = "0.4"
 log = "0.4"
