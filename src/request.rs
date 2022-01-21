@@ -187,8 +187,8 @@ pub async fn cached_search<'a>(
 #[cfg(test)]
 mod tests {
 
-    #[test]
-    fn test_request_functions() {
+    #[tokio::test]
+    async fn test_request_functions() {
         use crate::request::cached_search;
         use crate::request::{AurResponse, Search};
         use crate::{Cache, Client, Utils};
@@ -199,11 +199,7 @@ mod tests {
             cache: Arc::clone(&cache),
             client: Client::new(),
         };
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let result = runtime.block_on(cached_search(&utils, Search::from("paru")));
+        let result = cached_search(&utils, Search::from("paru")).await;
         assert!(
             matches!(*result, AurResponse::Result { .. },),
             "Search failed with a reponse of error variant"
@@ -225,8 +221,7 @@ mod tests {
                 "Invalid git url found for package"
             );
         }
-        let result = runtime.block_on(utils.cache.get(&String::from("paru")));
+        let result = utils.cache.get(&String::from("paru")).await;
         assert_ne!(matches!(result, None), true, "Couldn't find cache hit");
-        runtime.shutdown_background();
     }
 }
