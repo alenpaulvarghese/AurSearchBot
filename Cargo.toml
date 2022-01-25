@@ -1,18 +1,23 @@
 [package]
 name = "aur-search-bot"
 version = "0.1.5"
-edition = "2018"
+edition = "2021"
 license = "BSD-3-Clause"
 
 [dependencies]
-teloxide = { version = "0.5", features = ["macros", "ctrlc_handler", "auto-send"] }
-log4rs = { version = "1.0", features = ["file_appender", "pattern_encoder"]}
-tokio = { version =  "1.15", features = ["rt-multi-thread", "macros"] }
-reqwest = { version = "0.11", features = ["json"] }
-serde = { version = "1.0", features = ["derive"] }
-regex = { version = "1.5", features = ["std"] }
+teloxide = { version = "0.5.3", features = ["macros", "ctrlc_handler", "auto-send"] }
+log4rs = { version = "1.0.0", features = ["file_appender", "pattern_encoder"] }
+tokio = { version = "1.15.0", features = ["rt-multi-thread", "macros"] }
+reqwest = { version = "0.11.9", features = ["json"] }
+serde = { version = "1.0.135", features = ["derive"] }
+regex = { version = "1.5.4", features = ["std"] }
 tokio-stream = "0.1.8"
-lazy_static = "1.4"
-retainer = "0.2"
-chrono = "0.4"
-log = "0.4"
+lazy_static = "1.4.0"
+retainer = "0.2.2"
+chrono = "0.4.19"
+log = "0.4.14"
+
+
+[profile.release]
+opt-level = 3
+lto = true
