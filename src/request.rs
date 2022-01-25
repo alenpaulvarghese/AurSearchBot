@@ -20,6 +20,7 @@ pub enum AurResponse {
     Error { error: String },
     #[serde(rename = "search")]
     Result {
+        #[serde(rename = "resultcount")]
         total: usize,
         results: Vec<Packages>,
     },
