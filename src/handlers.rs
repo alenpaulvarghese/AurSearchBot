@@ -1,16 +1,16 @@
-use std::{error::Error, sync::Arc};
 use std::path::PathBuf;
 use std::time::Instant;
+use std::{error::Error, sync::Arc};
 
 use log::info;
-use teloxide::{prelude::*, utils::command::BotCommand};
 use teloxide::types::{
     InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery, InlineQueryResult,
     InlineQueryResultArticle, InputFile, InputMessageContent, InputMessageContentText, Message,
     ParseMode,
 };
+use teloxide::{prelude::*, utils::command::BotCommand};
 
-use crate::request::{AurResponse, cached_search, Search, Utils};
+use crate::request::{cached_search, AurResponse, Search, Utils};
 
 #[derive(BotCommand)]
 #[command(rename = "lowercase", description = "These commands are supported:")]

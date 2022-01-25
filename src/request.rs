@@ -9,7 +9,7 @@ use retainer::{entry::CacheEntryReadGuard, Cache};
 use serde::{Deserialize, Deserializer};
 
 pub struct Utils {
-    pub cache: Arc<Cache<String, AurResponse>>,
+    pub cache: Arc<Cache<Search, AurResponse>>,
     pub client: Client,
 }
 
@@ -25,7 +25,7 @@ pub enum AurResponse {
         results: Vec<Packages>,
     },
 }
-
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Search {
     Package(String),
     Maintainer(String),
@@ -210,7 +210,7 @@ mod tests {
                 "Invalid git url found for package"
             );
         }
-        let result = utils.cache.get(&String::from("paru")).await;
+        let result = utils.cache.get(&Search::from("paru")).await;
         assert_ne!(matches!(result, None), true, "Couldn't find cache hit");
     }
 }

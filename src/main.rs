@@ -7,7 +7,7 @@ use teloxide::prelude::*;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use handlers::{inline_queries_handler, message_handler};
-use request::{AurResponse, Utils};
+use request::{AurResponse, Search, Utils};
 
 mod handlers;
 mod request;
@@ -21,7 +21,7 @@ async fn main() {
 async fn run() {
     log::info!("Starting bot...");
     let bot = Bot::from_env().auto_send();
-    let cache: Arc<Cache<String, AurResponse>> = Arc::new(Cache::new());
+    let cache: Arc<Cache<Search, AurResponse>> = Arc::new(Cache::new());
     let utils = Utils {
         cache: Arc::clone(&cache),
         client: Client::new(),
