@@ -1,9 +1,3 @@
-mod handlers;
-mod request;
-
-use handlers::{inline_queries_handler, message_handler};
-use request::{AurResponse, Utils};
-
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,6 +5,12 @@ use reqwest::Client;
 use retainer::Cache;
 use teloxide::prelude::*;
 use tokio_stream::wrappers::UnboundedReceiverStream;
+
+use handlers::{inline_queries_handler, message_handler};
+use request::{AurResponse, Utils};
+
+mod handlers;
+mod request;
 
 #[tokio::main]
 async fn main() {

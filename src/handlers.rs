@@ -1,16 +1,16 @@
-use crate::request::{cached_search, AurResponse, Search, Utils};
-
+use std::{error::Error, sync::Arc};
 use std::path::PathBuf;
 use std::time::Instant;
-use std::{error::Error, sync::Arc};
 
 use log::info;
+use teloxide::{prelude::*, utils::command::BotCommand};
 use teloxide::types::{
     InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery, InlineQueryResult,
     InlineQueryResultArticle, InputFile, InputMessageContent, InputMessageContentText, Message,
     ParseMode,
 };
-use teloxide::{prelude::*, utils::command::BotCommand};
+
+use crate::request::{AurResponse, cached_search, Search, Utils};
 
 #[derive(BotCommand)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
@@ -43,21 +43,17 @@ pub async fn inline_queries_handler(
     let mut offset = cx.update.offset.parse::<usize>().unwrap_or_default();
     let instant = Instant::now();
     let aur_response = cached_search(&utils, Search::from(&cx.update.query)).await;
-    if let AurResponse::Result {
-        results,
-        resultcount,
-    } = &*aur_response
-    {
+    if let AurResponse::Result { results, total } = &*aur_response {
         info!(
             "Query: \"{}\", total result: {}, current offset: {}, took: {}ms",
             cx.update.query,
-            resultcount,
+            total,
             offset,
             instant.elapsed().as_millis()
         );
         let mut end = offset + 50;
-        if end > *resultcount {
-            end = *resultcount
+        if end > *total {
+            end = *total
         }
         for items in &results[offset..end] {
             inline_result.push(InlineQueryResult::Article(
@@ -87,7 +83,7 @@ pub async fn inline_queries_handler(
             "1",
             error,
             InputMessageContent::Text(InputMessageContentText::new(
-                "Error occured while searching AUR",
+                "Error occurred while searching AUR",
             )),
         )))
     }
@@ -113,51 +109,47 @@ pub async fn message_handler(
     cx: UpdateWithCx<AutoSend<Bot>, Message>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let text = cx.update.text();
-    if let None = text {
+    if text.is_none() {
         return Ok(());
     }
-    match Command::parse(text.unwrap(), "AurSearchBot") {
-        Ok(command) => {
-            match command {
-                Command::Start => {
-                    cx.answer(
-                        "This bot searches Packages in <a href='https://aur.archlinux.org/'>\
-                    AUR repository</a>, works only in inline mode \
-                    Inspired from @FDroidSearchBot\n\nCurrently supported search patterns:\n\
-                    - <code>Packages</code>, search directly\n- <code>Maintainer</code>, search with <code>!m</code>\n\n\
-                    <a href='https://gitlab.com/alenpaul2001/aursearchbot'>Source Code</a> | \
-                    <a href='https://t.me/bytesio'>Developer</a> | <a href='https://t.me/bytessupport'>Support Chat</a>",
+    if let Ok(command) = Command::parse(text.unwrap(), "AurSearchBot") {
+        match command {
+            Command::Start => {
+                cx.answer(
+                    "This bot searches Packages in <a href='https://aur.archlinux.org/'>\
+                AUR repository</a>, works only in inline mode \
+                Inspired from @FDroidSearchBot\n\nCurrently supported search patterns:\n\
+                - <code>Packages</code>, search directly\n- <code>Maintainer</code>, search with <code>!m</code>\n\n\
+                <a href='https://gitlab.com/alenpaul2001/aursearchbot'>Source Code</a> | \
+                <a href='https://t.me/bytesio'>Developer</a> | <a href='https://t.me/bytessupport'>Support Chat</a>",
+                )
+                .reply_markup(InlineKeyboardMarkup::new([
+                    [
+                    InlineKeyboardButton::switch_inline_query_current_chat(
+                        "Search Packages".to_string(),
+                        String::new(),
+                    ),
+                    InlineKeyboardButton::switch_inline_query_current_chat(
+                        "Search Package by Maintainers".to_string(),
+                        "!m ".to_string(),
                     )
-                    .reply_markup(InlineKeyboardMarkup::new([
-                        [
-                        InlineKeyboardButton::switch_inline_query_current_chat(
-                            "Search Packages".to_string(),
-                            String::new(),
-                        ),
-                        InlineKeyboardButton::switch_inline_query_current_chat(
-                            "Search Package by Maintainers".to_string(),
-                            "!m ".to_string(),
-                        )
-                    ]]))
-                    .parse_mode(ParseMode::Html)
-                    .disable_web_page_preview(true)
-                    .await?;
+                ]]))
+                .parse_mode(ParseMode::Html)
+                .disable_web_page_preview(true)
+                .await?;
+            }
+            Command::Help => {
+                cx.answer(Command::descriptions()).await?;
+            }
+            Command::Debug => {
+                let file_name = PathBuf::from("debug.log");
+                if file_name.exists() {
+                    cx.answer_document(InputFile::File(file_name)).await?;
+                } else {
+                    cx.reply_to("No log files found").await?;
                 }
-                Command::Help => {
-                    cx.answer(Command::descriptions()).await?;
-                }
-                Command::Debug => {
-                    let file_name = PathBuf::from("debug.log");
-                    if file_name.exists() {
-                        cx.answer_document(InputFile::File(file_name)).await?;
-                    } else {
-                        cx.reply_to("No log files found").await?;
-                    }
-                }
-            };
-        }
-        Err(_) => {}
+            }
+        };
     };
-
     Ok(())
 }

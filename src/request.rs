@@ -2,13 +2,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::NaiveDateTime;
-use regex::Regex;
-
-use reqwest::Client;
-use retainer::{entry::CacheEntryReadGuard, Cache};
-use serde::{Deserialize, Deserializer};
-
 use lazy_static::lazy_static;
+use regex::Regex;
+use reqwest::Client;
+use retainer::{Cache, entry::CacheEntryReadGuard};
+use serde::{Deserialize, Deserializer};
 
 pub struct Utils {
     pub cache: Arc<Cache<String, AurResponse>>,
@@ -22,7 +20,7 @@ pub enum AurResponse {
     Error { error: String },
     #[serde(rename = "search")]
     Result {
-        resultcount: usize,
+        total: usize,
         results: Vec<Packages>,
     },
 }
@@ -68,9 +66,9 @@ pub struct Packages {
     #[serde(rename = "URL", deserialize_with = "null_to_none")]
     pub package_url: String,
     pub package_base: String,
-    #[serde(deserialize_with = "posix_to_datefrmt")]
+    #[serde(deserialize_with = "posix_to_datefmt")]
     pub first_submitted: String,
-    #[serde(deserialize_with = "posix_to_datefrmt")]
+    #[serde(deserialize_with = "posix_to_datefmt")]
     pub last_modified: String,
 }
 
@@ -83,7 +81,7 @@ where
     lazy_static! {
         static ref REGEX: Regex = Regex::new(r"[<>&]").unwrap();
     }
-    let string: String = Deserialize::deserialize(de).unwrap_or(String::from("None"));
+    let string: String = Deserialize::deserialize(de).unwrap_or_else(|_| String::from("None"));
     // https://lise-henry.github.io/articles/optimising_strings.html
     let first = REGEX.find(&string);
     if let Some(first) = first {
@@ -105,7 +103,7 @@ where
 }
 
 // convert posix string to date format
-fn posix_to_datefrmt<'de, D>(de: D) -> Result<String, D::Error>
+fn posix_to_datefmt<'de, D>(de: D) -> Result<String, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -147,9 +145,9 @@ impl Packages {
 }
 
 pub async fn search(client: &Client, query: &Search) -> AurResponse {
-    let get_by = || match query {
-        &Search::Maintainer(_) => ("by", "maintainer"),
-        &Search::Package(_) => ("by", "name"),
+    let get_by = || match *query {
+        Search::Maintainer(_) => ("by", "maintainer"),
+        Search::Package(_) => ("by", "name"),
     };
     let params = [("v", "5"), ("type", "search"), get_by(), ("arg", query)];
     let res = client
@@ -161,10 +159,7 @@ pub async fn search(client: &Client, query: &Search) -> AurResponse {
     res.json::<AurResponse>().await.unwrap()
 }
 
-pub async fn cached_search<'a>(
-    utils: &'a Utils,
-    query: Search,
-) -> CacheEntryReadGuard<'a, AurResponse> {
+pub async fn cached_search(utils: &Utils, query: Search) -> CacheEntryReadGuard<'_, AurResponse> {
     // check for cached entry
     if let Some(cache) = utils.cache.get(&query).await {
         cache
@@ -206,17 +201,10 @@ mod tests {
         let result = runtime.block_on(cached_search(&utils, Search::from("paru")));
         assert!(
             matches!(*result, AurResponse::Result { .. },),
-            "Search failed with a reponse of error variant"
+            "Search failed with a response of error variant"
         );
-        if let AurResponse::Result {
-            results,
-            resultcount,
-        } = &*result
-        {
-            assert_ne!(
-                *resultcount, 0,
-                "Number of packages returned from search is zero",
-            );
+        if let AurResponse::Result { results, total } = &*result {
+            assert_ne!(*total, 0, "Number of packages returned from search is zero", );
 
             assert_eq!(results[0].name, "paru", "The packages sorting failed");
             assert_eq!(
@@ -226,7 +214,7 @@ mod tests {
             );
         }
         let result = runtime.block_on(utils.cache.get(&String::from("paru")));
-        assert_ne!(matches!(result, None), true, "Couldn't find cache hit");
+        assert!(!result.is_none(), "Couldn't find cache hit");
         runtime.shutdown_background();
     }
 }
