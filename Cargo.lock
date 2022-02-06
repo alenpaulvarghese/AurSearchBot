@@ -62,7 +62,7 @@ dependencies = [
 
 [[package]]
 name = "aur-search-bot"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "chrono",
  "lazy_static",
