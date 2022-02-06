@@ -8,6 +8,8 @@ use reqwest::Client;
 use retainer::{entry::CacheEntryReadGuard, Cache};
 use serde::{Deserialize, Deserializer};
 
+const AUR_RPC_URL: &str = "https://aur.archlinux.org/rpc/";
+
 pub struct Utils {
     pub cache: Arc<Cache<Search, AurResponse>>,
     pub client: Client,
@@ -151,12 +153,7 @@ pub async fn search(client: &Client, query: &Search) -> AurResponse {
         Search::Package(_) => ("by", "name"),
     };
     let params = [("v", "5"), ("type", "search"), get_by(), ("arg", query)];
-    let res = client
-        .get("https://aur.archlinux.org/rpc.php/rpc/")
-        .query(&params)
-        .send()
-        .await
-        .unwrap();
+    let res = client.get(AUR_RPC_URL).query(&params).send().await.unwrap();
     res.json::<AurResponse>().await.unwrap()
 }
 
