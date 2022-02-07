@@ -1,6 +1,6 @@
 [package]
 name = "aur-search-bot"
-version = "0.1.9"
+version = "0.2.0"
 edition = "2021"
 license = "BSD-3-Clause"
 
@@ -11,7 +11,6 @@ tokio = { version = "1.16", features = ["rt-multi-thread", "macros"] }
 reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 regex = { version = "1.5", features = ["std"] }
-tokio-stream = "0.1"
 lazy_static = "1.4"
 retainer = "0.2"
 chrono = "0.4"
