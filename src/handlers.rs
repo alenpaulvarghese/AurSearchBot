@@ -4,9 +4,8 @@ use std::time::Instant;
 
 use log::info;
 use teloxide::types::{
-    InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery, InlineQueryResult,
-    InlineQueryResultArticle, InputFile, InputMessageContent, InputMessageContentText, Message,
-    ParseMode,
+    InlineKeyboardButton, InlineKeyboardMarkup, InlineQueryResult, InlineQueryResultArticle,
+    InputFile, InputMessageContent, InputMessageContentText, ParseMode,
 };
 use teloxide::{prelude2::*, utils::command::BotCommand, RequestError};
 
@@ -29,7 +28,6 @@ pub async fn inline_queries_handler(
     utils: Arc<Utils>,
 ) -> Result<(), RequestError> {
     // check if the query is empty or contain certain characters
-    println!("Working");
     match update.query.as_str() {
         "" | "!" | "!m" | "!m " => {
             bot.answer_inline_query(update.id, [])

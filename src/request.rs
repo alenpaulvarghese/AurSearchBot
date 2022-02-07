@@ -15,6 +15,15 @@ pub struct Utils {
     pub client: Client,
 }
 
+impl Utils {
+    pub fn new(cache: &Arc<Cache<Search, AurResponse>>) -> Self {
+        Utils {
+            cache: Arc::clone(cache),
+            client: Client::new(),
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum AurResponse {
@@ -184,14 +193,11 @@ mod tests {
     async fn test_request_functions() {
         use crate::request::cached_search;
         use crate::request::{AurResponse, Search};
-        use crate::{Cache, Client, Utils};
+        use crate::{Cache, Utils};
         use std::sync::Arc;
 
         let cache = Arc::new(Cache::new());
-        let utils = Utils {
-            cache: Arc::clone(&cache),
-            client: Client::new(),
-        };
+        let utils = Utils::new(&cache);
         let result = cached_search(&utils, Search::from("paru")).await;
         assert!(
             matches!(*result, AurResponse::Result { .. },),
