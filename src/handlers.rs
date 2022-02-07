@@ -1,6 +1,6 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Instant;
-use std::{error::Error, sync::Arc};
 
 use log::info;
 use teloxide::types::{
@@ -8,7 +8,7 @@ use teloxide::types::{
     InlineQueryResultArticle, InputFile, InputMessageContent, InputMessageContentText, Message,
     ParseMode,
 };
-use teloxide::{prelude::*, utils::command::BotCommand};
+use teloxide::{prelude2::*, utils::command::BotCommand, RequestError};
 
 use crate::request::{cached_search, AurResponse, Search, Utils};
 
@@ -24,14 +24,15 @@ enum Command {
 }
 
 pub async fn inline_queries_handler(
-    cx: UpdateWithCx<AutoSend<Bot>, InlineQuery>,
+    bot: AutoSend<Bot>,
+    update: InlineQuery,
     utils: Arc<Utils>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+) -> Result<(), RequestError> {
     // check if the query is empty or contain certain characters
-    match cx.update.query.as_str() {
+    println!("Working");
+    match update.query.as_str() {
         "" | "!" | "!m" | "!m " => {
-            cx.requester
-                .answer_inline_query(cx.update.id, [])
+            bot.answer_inline_query(update.id, [])
                 .switch_pm_text("Type to search packages on AUR")
                 .switch_pm_parameter("start")
                 .await?;
@@ -40,13 +41,13 @@ pub async fn inline_queries_handler(
         _ => {}
     }
     let mut inline_result: Vec<InlineQueryResult> = Vec::new();
-    let mut offset = cx.update.offset.parse::<usize>().unwrap_or_default();
+    let mut offset = update.offset.parse::<usize>().unwrap_or_default();
     let instant = Instant::now();
-    let aur_response = cached_search(&utils, Search::from(&cx.update.query)).await;
+    let aur_response = cached_search(&utils, Search::from(&update.query)).await;
     if let AurResponse::Result { results, total } = &*aur_response {
         info!(
             "Query: \"{}\", total result: {}, current offset: {}, took: {}ms",
-            cx.update.query,
+            update.query,
             total,
             offset,
             instant.elapsed().as_millis()
@@ -78,7 +79,7 @@ pub async fn inline_queries_handler(
             0
         };
     } else if let AurResponse::Error { error } = &*aur_response {
-        info!("Query: \"{}\", error: {}", cx.update.query, error);
+        info!("Query: \"{}\", error: {}", update.query, error);
         inline_result.push(InlineQueryResult::Article(InlineQueryResultArticle::new(
             "1",
             error,
@@ -94,28 +95,25 @@ pub async fn inline_queries_handler(
             InputMessageContent::Text(InputMessageContentText::new("No package has been found")),
         )))
     }
-    let mut req_builder = cx
-        .requester
-        .answer_inline_query(cx.update.id, inline_result);
+    let mut req_builder = bot.answer_inline_query(update.id, inline_result);
     if offset != 0 {
         req_builder = req_builder.next_offset(offset.to_string());
     }
     req_builder.await?;
 
-    Ok(())
+    respond(())
 }
 
-pub async fn message_handler(
-    cx: UpdateWithCx<AutoSend<Bot>, Message>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let text = cx.update.text();
+pub async fn message_handler(bot: AutoSend<Bot>, message: Message) -> Result<(), RequestError> {
+    let text = message.text();
     if text.is_none() {
-        return Ok(());
+        return respond(());
     }
     if let Ok(command) = Command::parse(text.unwrap(), "AurSearchBot") {
         match command {
             Command::Start => {
-                cx.answer(
+                bot.send_message(
+                    message.chat_id(),
                     "This bot searches Packages in <a href='https://aur.archlinux.org/'>\
                 AUR repository</a>, works only in inline mode \
                 Inspired from @FDroidSearchBot\n\nCurrently supported search patterns:\n\
@@ -139,17 +137,20 @@ pub async fn message_handler(
                 .await?;
             }
             Command::Help => {
-                cx.answer(Command::descriptions()).await?;
+                bot.send_message(message.chat_id(), Command::descriptions())
+                    .await?;
             }
             Command::Debug => {
                 let file_name = PathBuf::from("debug.log");
                 if file_name.exists() {
-                    cx.answer_document(InputFile::File(file_name)).await?;
+                    bot.send_document(message.chat_id(), InputFile::file(file_name))
+                        .await?;
                 } else {
-                    cx.reply_to("No log files found").await?;
+                    bot.send_message(message.chat_id(), "No log files found")
+                        .await?;
                 }
             }
         };
     };
-    Ok(())
+    respond(())
 }
