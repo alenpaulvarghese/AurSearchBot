@@ -34,7 +34,7 @@ pub async fn inline_queries_handler(
                 .switch_pm_text("Type to search packages on AUR")
                 .switch_pm_parameter("start")
                 .await?;
-            return Ok(());
+            return respond(());
         }
         _ => {}
     }
