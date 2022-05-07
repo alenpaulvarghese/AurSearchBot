@@ -1,9 +1,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use dptree::endpoint;
 use retainer::Cache;
-use teloxide::prelude2::*;
+use teloxide::dptree::endpoint;
+use teloxide::prelude::*;
 
 use handlers::{inline_queries_handler, message_handler};
 use request::{AurResponse, Search, Utils};

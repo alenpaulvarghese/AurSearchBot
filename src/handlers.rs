@@ -4,14 +4,14 @@ use std::time::Instant;
 
 use log::info;
 use teloxide::types::{
-    InlineKeyboardButton, InlineKeyboardMarkup, InlineQueryResult, InlineQueryResultArticle,
-    InputFile, InputMessageContent, InputMessageContentText, ParseMode,
+    ChatId, InlineKeyboardButton, InlineKeyboardMarkup, InlineQueryResult,
+    InlineQueryResultArticle, InputFile, InputMessageContent, InputMessageContentText, ParseMode,
 };
-use teloxide::{prelude2::*, utils::command::BotCommand, RequestError};
+use teloxide::{prelude::*, utils::command::BotCommands, RequestError};
 
 use crate::request::{cached_search, AurResponse, Search, Utils};
 
-#[derive(BotCommand)]
+#[derive(BotCommands)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
 enum Command {
     #[command(description = "check if I'm alive.")]
@@ -111,7 +111,7 @@ pub async fn message_handler(bot: AutoSend<Bot>, message: Message) -> Result<(),
         match command {
             Command::Start => {
                 bot.send_message(
-                    message.chat_id(),
+                    message.chat.id,
                     "This bot searches Packages in <a href='https://aur.archlinux.org/'>\
                 AUR repository</a>, works only in inline mode \
                 Inspired from @FDroidSearchBot\n\nCurrently supported search patterns:\n\
@@ -135,17 +135,24 @@ pub async fn message_handler(bot: AutoSend<Bot>, message: Message) -> Result<(),
                 .await?;
             }
             Command::Help => {
-                bot.send_message(message.chat_id(), Command::descriptions())
+                bot.send_message(message.chat.id, Command::descriptions().to_string())
                     .await?;
             }
             Command::Debug => {
-                let file_name = PathBuf::from("debug.log");
-                if file_name.exists() {
-                    bot.send_document(message.chat_id(), InputFile::file(file_name))
-                        .await?;
-                } else {
-                    bot.send_message(message.chat_id(), "No log files found")
-                        .await?;
+                let su_user_id = std::env::var("SU_USER").unwrap_or_default().parse::<i64>();
+                if su_user_id.is_err() {
+                    return respond(());
+                }
+                let su_user = ChatId(su_user_id.unwrap());
+                if su_user == message.chat.id {
+                    let file_name = PathBuf::from("debug.log");
+                    if file_name.exists() {
+                        bot.send_document(message.chat.id, InputFile::file(file_name))
+                            .await?;
+                    } else {
+                        bot.send_message(message.chat.id, "No log files found")
+                            .await?;
+                    }
                 }
             }
         };

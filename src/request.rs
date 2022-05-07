@@ -5,7 +5,7 @@ use chrono::NaiveDateTime;
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Client;
-use retainer::{entry::CacheEntryReadGuard, Cache};
+use retainer::{entry::CacheReadGuard, Cache};
 use serde::{Deserialize, Deserializer};
 
 const AUR_RPC_URL: &str = "https://aur.archlinux.org/rpc/";
@@ -36,6 +36,7 @@ pub enum AurResponse {
         results: Vec<Packages>,
     },
 }
+
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Search {
     Package(String),
@@ -166,7 +167,7 @@ pub async fn search(client: &Client, query: &Search) -> AurResponse {
     res.json::<AurResponse>().await.unwrap()
 }
 
-pub async fn cached_search(utils: &Utils, query: Search) -> CacheEntryReadGuard<'_, AurResponse> {
+pub async fn cached_search(utils: &Utils, query: Search) -> CacheReadGuard<'_, AurResponse> {
     // check for cached entry
     if let Some(cache) = utils.cache.get(&query).await {
         cache
