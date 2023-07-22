@@ -19,7 +19,7 @@ async fn main() {
 
 async fn run() {
     log::info!("Starting bot...");
-    let bot = Bot::from_env().auto_send();
+    let bot = Bot::from_env();
     let cache: Arc<Cache<Search, AurResponse>> = Arc::new(Cache::new());
     let utils = Arc::new(Utils::new(&cache));
 
@@ -33,8 +33,8 @@ async fn run() {
         .branch(inline_handler);
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![utils])
+        .enable_ctrlc_handler()
         .build()
-        .setup_ctrlc_handler()
         .dispatch()
         .await;
 }

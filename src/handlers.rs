@@ -22,11 +22,7 @@ enum Command {
     Debug,
 }
 
-pub async fn inline_queries_handler(
-    bot: AutoSend<Bot>,
-    update: InlineQuery,
-    utils: Arc<Utils>,
-) -> Result<(), RequestError> {
+pub async fn inline_queries_handler(bot: Bot, update: InlineQuery, utils: Arc<Utils>) -> Result<(), RequestError> {
     // check if the query is empty or contain certain characters
     match update.query.as_str() {
         "" | "!" | "!m" | "!m " => {
@@ -42,50 +38,43 @@ pub async fn inline_queries_handler(
     let mut offset = update.offset.parse::<usize>().unwrap_or_default();
     let instant = Instant::now();
     let aur_response = cached_search(&utils, Search::from(&update.query)).await;
-    if let AurResponse::Result { results, total } = &*aur_response {
-        info!(
-            "Query: \"{}\", total result: {}, current offset: {}, took: {}ms",
-            update.query,
-            total,
-            offset,
-            instant.elapsed().as_millis()
-        );
-        let mut end = offset + 50;
-        if end > *total {
-            end = *total
+    match &*aur_response {
+        AurResponse::Result { total, results } => {
+            info!(
+                "Query: \"{}\", total result: {}, current offset: {}, took: {}ms",
+                update.query,
+                total,
+                offset,
+                instant.elapsed().as_millis()
+            );
+            results.iter().skip(offset).take(50).for_each(|package| {
+                inline_result.push(InlineQueryResult::Article(
+                    InlineQueryResultArticle::new(
+                        package.id.to_string(),
+                        &package.name,
+                        InputMessageContent::Text(
+                            InputMessageContentText::new(&package.pretty())
+                                .parse_mode(ParseMode::Html)
+                                .disable_web_page_preview(true),
+                        ),
+                    )
+                    .description(&package.description),
+                ))
+            });
+            // increase the offset by 50 after every scroll down
+            // if the current offset + 50 is lesser than the total
+            // length of the result the offset should be set to 0
+            offset = if offset + 50 < results.len() { offset + 50 } else { 0 };
         }
-        for items in &results[offset..end] {
-            inline_result.push(InlineQueryResult::Article(
-                InlineQueryResultArticle::new(
-                    items.id.to_string(),
-                    &items.name,
-                    InputMessageContent::Text(
-                        InputMessageContentText::new(&items.pretty())
-                            .parse_mode(ParseMode::Html)
-                            .disable_web_page_preview(true),
-                    ),
-                )
-                .description(&items.description),
-            ));
+        AurResponse::Error { error } => {
+            info!("Query: \"{}\", error: {}", update.query, error);
+            inline_result.push(InlineQueryResult::Article(InlineQueryResultArticle::new(
+                "1",
+                error,
+                InputMessageContent::Text(InputMessageContentText::new("Error occurred while searching AUR")),
+            )))
         }
-        // increase the offset by 50 after every scroll down
-        // if the current offset + 50 is lesser than the total
-        // length of the result the offset should be set to 0
-        offset = if offset + 50 < results.len() {
-            offset + 50
-        } else {
-            0
-        };
-    } else if let AurResponse::Error { error } = &*aur_response {
-        info!("Query: \"{}\", error: {}", update.query, error);
-        inline_result.push(InlineQueryResult::Article(InlineQueryResultArticle::new(
-            "1",
-            error,
-            InputMessageContent::Text(InputMessageContentText::new(
-                "Error occurred while searching AUR",
-            )),
-        )))
-    }
+    };
     if inline_result.is_empty() {
         inline_result.push(InlineQueryResult::Article(InlineQueryResultArticle::new(
             "1",
@@ -102,7 +91,7 @@ pub async fn inline_queries_handler(
     respond(())
 }
 
-pub async fn message_handler(bot: AutoSend<Bot>, message: Message) -> Result<(), RequestError> {
+pub async fn message_handler(bot: Bot, message: Message) -> Result<(), RequestError> {
     let text = message.text();
     if text.is_none() {
         return respond(());
@@ -113,14 +102,13 @@ pub async fn message_handler(bot: AutoSend<Bot>, message: Message) -> Result<(),
                 bot.send_message(
                     message.chat.id,
                     "This bot searches Packages in <a href='https://aur.archlinux.org/'>\
-                AUR repository</a>, works only in inline mode \
+                     AUR repository</a>, works only in inline mode \
                 Inspired from @FDroidSearchBot\n\nCurrently supported search patterns:\n\
                 - <code>Packages</code>, search directly\n- <code>Maintainer</code>, search with <code>!m</code>\n\n\
                 <a href='https://gitlab.com/alenpaul2001/aursearchbot'>Source Code</a> | \
                 <a href='https://t.me/bytesio'>Developer</a> | <a href='https://t.me/bytessupport'>Support Chat</a>",
                 )
-                .reply_markup(InlineKeyboardMarkup::new([
-                    [
+                .reply_markup(InlineKeyboardMarkup::new([[
                     InlineKeyboardButton::switch_inline_query_current_chat(
                         "Search Packages".to_string(),
                         String::new(),
@@ -128,7 +116,7 @@ pub async fn message_handler(bot: AutoSend<Bot>, message: Message) -> Result<(),
                     InlineKeyboardButton::switch_inline_query_current_chat(
                         "Search Package by Maintainers".to_string(),
                         "!m ".to_string(),
-                    )
+                    ),
                 ]]))
                 .parse_mode(ParseMode::Html)
                 .disable_web_page_preview(true)
@@ -147,11 +135,9 @@ pub async fn message_handler(bot: AutoSend<Bot>, message: Message) -> Result<(),
                 if su_user == message.chat.id {
                     let file_name = PathBuf::from("debug.log");
                     if file_name.exists() {
-                        bot.send_document(message.chat.id, InputFile::file(file_name))
-                            .await?;
+                        bot.send_document(message.chat.id, InputFile::file(file_name)).await?;
                     } else {
-                        bot.send_message(message.chat.id, "No log files found")
-                            .await?;
+                        bot.send_message(message.chat.id, "No log files found").await?;
                     }
                 }
             }

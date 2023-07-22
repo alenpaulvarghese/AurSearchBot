@@ -92,9 +92,6 @@ fn null_to_none<'de, D>(de: D) -> Result<String, D::Error>
 where
     D: Deserializer<'de>,
 {
-    lazy_static! {
-        static ref REGEX: Regex = Regex::new(r"[<>&]").unwrap();
-    }
     let string: String = Deserialize::deserialize(de).unwrap_or_else(|_| String::from("None"));
     // https://lise-henry.github.io/articles/optimising_strings.html
     let first = REGEX.find(&string);
@@ -159,12 +156,12 @@ impl Packages {
 }
 
 pub async fn search(client: &Client, query: &Search) -> AurResponse {
-    let get_by = || match *query {
+    let query_params = match *query {
         Search::Maintainer(_) => ("by", "maintainer"),
         Search::Package(_) => ("by", "name"),
     };
-    let params = [("v", "5"), ("type", "search"), get_by(), ("arg", query)];
-    let res = client.get(AUR_RPC_URL).query(&params).send().await.unwrap();
+    let url = AUR_RPC_URL.join(&query).unwrap();
+    let res = client.get(url).query(&[query_params]).send().await.unwrap();
     res.json::<AurResponse>().await.unwrap()
 }
 

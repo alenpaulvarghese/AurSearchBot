@@ -25,7 +25,7 @@ which you can get from @Botfather then run the target binary.
 alternatively you can use cargo run<br>
 `TELOXIDE_TOKEN="12345:49dc3eeb1aehda3cI2TesHNHc" cargo run`
 
-### Copyright & License 
+### Copyright & License
 
-* Copyright (C) 2022 by [AlenPaulVarghese](https://github.com/alenpaul2001)
+* Copyright (C) 2023 by [AlenPaulVarghese](https://github.com/alenpaulvarghese)
 * Licensed under the terms of the [BSD 3-Clause License](./LICENSE.md)
