@@ -2,13 +2,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::NaiveDateTime;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use regex::Regex;
-use reqwest::Client;
+use reqwest::{Client, Url};
 use retainer::{entry::CacheReadGuard, Cache};
 use serde::{Deserialize, Deserializer};
 
-const AUR_RPC_URL: &str = "https://aur.archlinux.org/rpc/";
+const AUR_RPC_URL: Lazy<Url> = Lazy::new(|| Url::parse("https://aur.archlinux.org/rpc/v5/search/").unwrap());
+const REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"[<>&]").unwrap());
 
 pub struct Utils {
     pub cache: Arc<Cache<Search, AurResponse>>,
@@ -121,8 +122,8 @@ where
     D: Deserializer<'de>,
 {
     let timestamp: i64 = Deserialize::deserialize(de)?;
-    let naive = NaiveDateTime::from_timestamp(timestamp, 0);
-    Ok(naive.format("%Y-%m-%d %H:%M").to_string())
+    let naive = NaiveDateTime::from_timestamp_opt(timestamp, 0);
+    Ok(naive.unwrap_or_default().format("%Y-%m-%d %H:%M").to_string())
 }
 
 impl Packages {

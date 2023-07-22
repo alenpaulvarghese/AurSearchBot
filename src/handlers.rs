@@ -4,15 +4,15 @@ use std::time::Instant;
 
 use log::info;
 use teloxide::types::{
-    ChatId, InlineKeyboardButton, InlineKeyboardMarkup, InlineQueryResult,
-    InlineQueryResultArticle, InputFile, InputMessageContent, InputMessageContentText, ParseMode,
+    ChatId, InlineKeyboardButton, InlineKeyboardMarkup, InlineQueryResult, InlineQueryResultArticle, InputFile,
+    InputMessageContent, InputMessageContentText, ParseMode,
 };
 use teloxide::{prelude::*, utils::command::BotCommands, RequestError};
 
 use crate::request::{cached_search, AurResponse, Search, Utils};
 
 #[derive(BotCommands)]
-#[command(rename = "lowercase", description = "These commands are supported:")]
+#[command(rename_rule = "lowercase", description = "These commands are supported:")]
 enum Command {
     #[command(description = "check if I'm alive.")]
     Start,
