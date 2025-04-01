@@ -107,7 +107,7 @@ pub async fn message_handler(bot: Bot, message: Message) -> Result<(), RequestEr
                      AUR repository</a>, works only in inline mode \
                 Inspired from @FDroidSearchBot\n\nCurrently supported search patterns:\n\
                 - <code>Packages</code>, search directly\n- <code>Maintainer</code>, search with <code>!m</code>\n\n\
-                <a href='https://gitlab.com/alenpaul2001/aursearchbot'>Source Code</a> | \
+                <a href='https://github.com/alenpaulvarghese/aursearchbot'>Source Code</a> | \
                 <a href='https://t.me/bytesio'>Developer</a> | <a href='https://t.me/bytessupport'>Support Chat</a>",
                 )
                 .reply_markup(InlineKeyboardMarkup::new([[
