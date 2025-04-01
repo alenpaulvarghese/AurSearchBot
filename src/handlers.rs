@@ -3,13 +3,15 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use log::info;
+use teloxide::sugar::request::RequestLinkPreviewExt;
 use teloxide::types::{
-    ChatId, InlineKeyboardButton, InlineKeyboardMarkup, InlineQueryResult, InlineQueryResultArticle, InputFile,
-    InputMessageContent, InputMessageContentText, ParseMode,
+    ChatId, InlineKeyboardButton, InlineKeyboardMarkup, InlineQueryResult, InlineQueryResultArticle,
+    InlineQueryResultsButton, InlineQueryResultsButtonKind, InputFile, InputMessageContent, InputMessageContentText,
+    ParseMode,
 };
-use teloxide::{prelude::*, utils::command::BotCommands, RequestError};
+use teloxide::{RequestError, prelude::*, utils::command::BotCommands};
 
-use crate::request::{cached_search, AurResponse, Search, Utils};
+use crate::request::{AurResponse, Search, Utils, cached_search};
 
 #[derive(BotCommands)]
 #[command(rename_rule = "lowercase", description = "These commands are supported:")]
@@ -18,7 +20,7 @@ enum Command {
     Start,
     #[command(description = "display this text.")]
     Help,
-    #[command(description = "off")]
+    #[command(description = "hide")]
     Debug,
 }
 
@@ -27,8 +29,10 @@ pub async fn inline_queries_handler(bot: Bot, update: InlineQuery, utils: Arc<Ut
     match update.query.as_str() {
         "" | "!" | "!m" | "!m " => {
             bot.answer_inline_query(update.id, [])
-                .switch_pm_text("Type to search packages on AUR")
-                .switch_pm_parameter("start")
+                .button(InlineQueryResultsButton {
+                    text: "Type to search packages on AUR".to_string(),
+                    kind: InlineQueryResultsButtonKind::StartParameter("start".to_string()),
+                })
                 .await?;
             return respond(());
         }
@@ -53,9 +57,7 @@ pub async fn inline_queries_handler(bot: Bot, update: InlineQuery, utils: Arc<Ut
                         package.id.to_string(),
                         &package.name,
                         InputMessageContent::Text(
-                            InputMessageContentText::new(&package.pretty())
-                                .parse_mode(ParseMode::Html)
-                                .disable_web_page_preview(true),
+                            InputMessageContentText::new(&package.pretty()).parse_mode(ParseMode::Html),
                         ),
                     )
                     .description(&package.description),
@@ -109,17 +111,11 @@ pub async fn message_handler(bot: Bot, message: Message) -> Result<(), RequestEr
                 <a href='https://t.me/bytesio'>Developer</a> | <a href='https://t.me/bytessupport'>Support Chat</a>",
                 )
                 .reply_markup(InlineKeyboardMarkup::new([[
-                    InlineKeyboardButton::switch_inline_query_current_chat(
-                        "Search Packages".to_string(),
-                        String::new(),
-                    ),
-                    InlineKeyboardButton::switch_inline_query_current_chat(
-                        "Search Package by Maintainers".to_string(),
-                        "!m ".to_string(),
-                    ),
+                    InlineKeyboardButton::switch_inline_query_current_chat("Search Packages", String::new()),
+                    InlineKeyboardButton::switch_inline_query_current_chat("Search Package by Maintainers", "!m "),
                 ]]))
                 .parse_mode(ParseMode::Html)
-                .disable_web_page_preview(true)
+                .disable_link_preview(false)
                 .await?;
             }
             Command::Help => {

@@ -1,7 +1,7 @@
 # AurSearchBot
 
 [![made-with-rust](https://img.shields.io/badge/Made%20with-Rust-1f425f.svg)](https://www.rust-lang.org/)
-[![LICENSE](https://img.shields.io/github/license/alenpaul2001/AurSearchBot?color=%2340AA8B)](./LICENSE.md)
+[![LICENSE](https://img.shields.io/github/license/alenpaulvarghese/AurSearchBot?color=%2340AA8B)](./LICENSE.md)
 [![Try it on telegram](https://img.shields.io/badge/try%20it-on%20telegram-0088cc.svg)](http://t.me/AurSearchBot)
 
 A Telegram Inline Search Bot Written in Rust
@@ -15,7 +15,7 @@ Telegram Bot that can search [AUR](https://aur.archlinux.org/) ( Arch User Repos
 
 build using `cargo build`
 ```sh
-git clone https://gitlab.com/alenpaul2001/aursearchbot.git
+git clone https://github.com/alenpaulvarghese/aursearchbot.git
 cd aursearchbot
 cargo build
 ```
@@ -27,5 +27,5 @@ alternatively you can use cargo run<br>
 
 ### Copyright & License
 
-* Copyright (C) 2023 by [AlenPaulVarghese](https://github.com/alenpaulvarghese)
+* Copyright (C) 2025 by [AlenPaulVarghese](https://github.com/alenpaulvarghese)
 * Licensed under the terms of the [BSD 3-Clause License](./LICENSE.md)
